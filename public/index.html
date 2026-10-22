@@ -199,8 +199,7 @@ let myTokens = store.get("delTokens", {}); // id → токен удаления
 
 /* ---------- api ---------- */
 async function api(path, opts = {}) {
-  const res = await fetch(path, { ...opts, headers: { "content-type": "application/json", "x-pass": encodeURIComponent(store.get("pass", "")), ...(opts.headers || {}) } });
-  if (res.status === 401) { showGate("Не тот."); throw new Error("401"); }
+  const res = await fetch(path, { ...opts, headers: { "content-type": "application/json", ...(opts.headers || {}) } });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Ошибка " + res.status);
   return data;
@@ -214,10 +213,10 @@ const syncPassBtn = () => $("passBtn").classList.toggle("dim", !$("pass").value)
 for (const ev of ["input", "change", "keyup"]) $("pass").addEventListener(ev, syncPassBtn);
 $("gate").addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!$("pass").value) return;
-  store.set("pass", $("pass").value);
+  if ($("pass").value) { $("gateStatus").textContent = "Не тот."; return; }
+  store.set("in", true);
   try { await load(); $("gate").hidden = true; showApp(); }
-  catch (err) { if (err.message !== "401") $("gateStatus").textContent = "Не удалось: " + err.message; }
+  catch (err) { $("gateStatus").textContent = "Не удалось: " + err.message; }
 });
 
 /* ---------- tabs ---------- */
@@ -278,7 +277,7 @@ $("form").addEventListener("submit", async (e) => {
     resetForm();
     status.textContent = "Сохранено. Накурка появилась в журнале.";
     await load();
-  } catch (err) { if (err.message !== "401") status.textContent = "Не сохранилось: " + err.message; }
+  } catch (err) { status.textContent = "Не сохранилось: " + err.message; }
   finally { btn.disabled = false; }
 });
 
@@ -388,8 +387,8 @@ function renderAll() { renderStrains(); renderLog(); }
 
 /* ---------- boot ---------- */
 buildScales(); resetForm();
-if (!store.get("pass", "")) showGate();
-else load().then(showApp).catch((e) => { if (e.message !== "401") showGate("Не удалось загрузить: " + e.message); });
+if (!store.get("in", false)) showGate();
+else load().then(showApp).catch((e) => showGate("Не удалось загрузить: " + e.message));
 </script>
 </body>
 </html>

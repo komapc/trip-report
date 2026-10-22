@@ -2,7 +2,7 @@
 
 Журнал накурок: каждая накурка оценивается по 13 шкалам от −5 до +5, сорт получает средние по всем своим накуркам.
 
-Сайт: https://trip-report.komapc.workers.dev (вход по общему паролю компании)
+Сайт: https://trip-report.komapc.workers.dev
 
 ## Шкалы
 
@@ -12,7 +12,8 @@
 
 ## Анонимность
 
-- Никаких аккаунтов, имён и авторов у записей. Один общий пароль на всю компанию.
+- Никаких аккаунтов, имён и авторов у записей.
+- Вход — обманка: пустое поле и кнопка «Пароль». Пускает только с пустым полем; любой введённый текст получает «Не тот.». Сервер ничего не проверяет.
 - Сервер сохраняет только то, что введено в форму. IP, User-Agent и время запроса не пишутся; логи и observability воркера выключены.
 - Удалить запись можно только из того браузера, где её создали: токен удаления лежит в localStorage, в базе только его SHA-256.
 - Страница закрыта от индексации (`noindex`) и не шлёт Referer.
@@ -20,7 +21,7 @@
 ## Устройство
 
 - `public/index.html` — вся страница, без сборки.
-- `src/worker.js` — Cloudflare Worker: `GET/POST /api/sessions`, `DELETE /api/sessions/:id`, проверка пароля из заголовка `x-pass`.
+- `src/worker.js` — Cloudflare Worker: `GET/POST /api/sessions`, `DELETE /api/sessions/:id`.
 - `schema.sql` — таблица `sessions` в Cloudflare D1.
 
 ## Деплой
@@ -28,6 +29,5 @@
 ```sh
 npx wrangler d1 create trip-report            # один раз, id вписать в wrangler.toml
 npx wrangler d1 execute trip-report --remote --file=schema.sql
-npx wrangler secret put PASS                   # общий пароль
 npx wrangler deploy
 ```

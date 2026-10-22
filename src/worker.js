@@ -14,13 +14,6 @@ async function sha256(s) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Сравнение хэшей одинаковой длины за постоянное время.
-async function passOk(given, expected) {
-  if (!expected || !given) return false;
-  const [a, b] = await Promise.all([sha256(given), sha256(expected)]);
-  return crypto.subtle.timingSafeEqual(new TextEncoder().encode(a), new TextEncoder().encode(b));
-}
-
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 function parseSession(body) {
@@ -48,9 +41,6 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
-    let pass = "";
-    try { pass = decodeURIComponent(request.headers.get("x-pass") || ""); } catch {}
-    if (!(await passOk(pass, env.PASS))) return json({ error: "Неверный пароль" }, 401);
 
     if (url.pathname === "/api/sessions" && request.method === "GET") {
       const { results } = await env.DB.prepare(
