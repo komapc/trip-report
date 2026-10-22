@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>Трип-репорт</title>
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
@@ -62,7 +63,8 @@ textarea { min-height: 80px; resize: vertical; }
 .badge { font: 600 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
 
 .primary { font: 600 15px var(--body); background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 12px 18px; cursor: pointer; }
-.primary:disabled { opacity: .5; cursor: default; }
+.primary:disabled, .primary.dim { opacity: .5; }
+.primary:disabled { cursor: default; }
 .ghost { font: 500 13px var(--body); background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
 .ghost.danger { color: var(--neg); border-color: var(--neg); }
 .status { font-size: 13px; color: var(--muted); min-height: 1.5em; }
@@ -102,7 +104,7 @@ textarea { min-height: 80px; resize: vertical; }
 
   <form id="gate" class="gate" hidden novalidate>
     <input type="password" id="pass" aria-label="Пароль" autocomplete="current-password">
-    <button class="primary" id="passBtn" type="submit" disabled>Пароль</button>
+    <button class="primary dim" id="passBtn" type="submit">Пароль</button>
     <span class="status" id="gateStatus" role="status"></span>
   </form>
 
@@ -208,7 +210,8 @@ async function load() { sessions = await api("/api/sessions"); renderAll(); }
 /* ---------- gate ---------- */
 function showGate(msg) { $("app").hidden = true; $("hdr").hidden = true; $("gate").hidden = false; $("gateStatus").textContent = msg || ""; $("pass").focus(); }
 function showApp() { $("app").hidden = false; $("hdr").hidden = false; }
-$("pass").addEventListener("input", () => { $("passBtn").disabled = !$("pass").value; });
+const syncPassBtn = () => $("passBtn").classList.toggle("dim", !$("pass").value);
+for (const ev of ["input", "change", "keyup"]) $("pass").addEventListener(ev, syncPassBtn);
 $("gate").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!$("pass").value) return;
