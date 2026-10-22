@@ -110,8 +110,8 @@ textarea { min-height: 80px; resize: vertical; }
 
   <div id="app" class="panel" hidden>
     <nav class="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-tab="new">Новая накурка</button>
-      <button role="tab" aria-selected="false" data-tab="strains">Сорта</button>
+      <button role="tab" aria-selected="true" data-tab="strains">Сорта</button>
+      <button role="tab" aria-selected="false" data-tab="new">Новая накурка</button>
       <button role="tab" aria-selected="false" data-tab="log">Журнал</button>
     </nav>
 
@@ -236,7 +236,7 @@ function showTab(t) {
   store.set("tab", t);
 }
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
-showTab(store.get("tab", "new"));
+showTab(store.get("tab", "strains"));
 document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
   filter = b.dataset.filter;
   document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
