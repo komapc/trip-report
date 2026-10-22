@@ -1,3 +1,6 @@
 .DS_Store
 *.swp
 .claude/
+.wrangler/
+.dev.vars
+node_modules/

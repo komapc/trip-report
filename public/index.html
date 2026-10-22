@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Трип-репорт</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column, tabs on top; sessions are the unit, strains aggregate them as diverging −5…+5 bars */
+:root {
+  --bg: #f3efe6; --surface: #fbf8f2; --ink: #2a2420; --muted: #7b6f63; --line: #ddd3c4;
+  --accent: #b5651d; --accent-ink: #fff8ef; --pos: #4f7a3a; --neg: #a8433a; --gold: #b8860b;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #1d1915; --surface: #27221d; --ink: #efe6d8; --muted: #a39584; --line: #3b342c;
+  --accent: #e0954e; --accent-ink: #1d1915; --pos: #8fbf6f; --neg: #e07a6e; --gold: #e8c15a; color-scheme: dark } }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 28px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); margin: 4px 0 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 17px; margin: 0; overflow-wrap: anywhere; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs button, .seg button { font: 500 14px var(--body); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.tabs button[aria-selected="true"], .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.seg { display: flex; gap: 6px; }
+.seg button { font-size: 13px; padding: 5px 12px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel { display: grid; gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.card.legend { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+input[type=text], input[type=password], input[type=datetime-local], textarea { font: 15px var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; }
+textarea { min-height: 80px; resize: vertical; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 480px) { .row2 { grid-template-columns: 1fr; } }
+
+.scale { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding-block: 8px; border-top: 1px solid var(--line); }
+.scale:first-child { border-top: 0; }
+.scale .name { font-weight: 500; }
+.scale .hint { grid-column: 1 / -1; font-size: 12px; color: var(--muted); margin-top: -2px; }
+.scale .val { font: 500 15px var(--mono); font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
+.scale input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.ticks { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 8px; font: 11px var(--mono); color: var(--muted); }
+.val.pos { color: var(--pos); } .val.neg { color: var(--neg); }
+
+.legendToggle { display: flex; gap: 10px; align-items: center; cursor: pointer; font-weight: 500; }
+.legendToggle input { width: 20px; height: 20px; accent-color: var(--gold); }
+.legendToggle small { display: block; font-weight: 400; color: var(--muted); }
+.badge { font: 600 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+
+.primary { font: 600 15px var(--body); background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 12px 18px; cursor: pointer; }
+.primary:disabled { opacity: .5; cursor: default; }
+.ghost { font: 500 13px var(--body); background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+.ghost.danger { color: var(--neg); border-color: var(--neg); }
+.status { font-size: 13px; color: var(--muted); min-height: 1.5em; }
+
+.empty { color: var(--muted); text-align: center; padding: 28px 12px; border: 1px dashed var(--line); border-radius: 12px; margin: 0; }
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.head > div:first-child { min-width: 0; }
+.meta { font-size: 13px; color: var(--muted); display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; }
+.big { font: 700 22px var(--display); font-variant-numeric: tabular-nums; }
+.big.pos { color: var(--pos); } .big.neg { color: var(--neg); }
+
+.bars { display: grid; gap: 4px; }
+.bar { display: grid; grid-template-columns: minmax(0, 11em) 1fr 3.5ch; gap: 8px; align-items: center; font-size: 13px; }
+.bar .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar .track { position: relative; height: 10px; background: var(--bg); border-radius: 3px; }
+.bar .track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); }
+.bar .fill { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.bar .num { font: 12px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.num.pos { color: var(--pos); } .num.neg { color: var(--neg); }
+@media (max-width: 420px) { .bar { grid-template-columns: minmax(0, 8.5em) 1fr 3.5ch; } }
+
+.quote { border-left: 3px solid var(--accent); padding: 2px 0 2px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.free { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 12px var(--mono); padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); }
+.chip.pos { color: var(--pos); } .chip.neg { color: var(--neg); }
+.gate { max-width: 360px; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .2s; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Трип<span>-</span>репорт</h1>
+    <p class="sub">Оцениваем каждую накурку по 13 шкалам от −5 до +5. Сорт получает средние по всем своим накуркам. Никаких имён и аккаунтов.</p>
+  </header>
+
+  <form id="gate" class="card gate" hidden novalidate>
+    <h2>Вход</h2>
+    <label class="f">Пароль компании
+      <input type="password" id="pass" autocomplete="current-password" required>
+    </label>
+    <button class="primary" type="submit">Войти</button>
+    <span class="status" id="gateStatus" role="status"></span>
+  </form>
+
+  <div id="app" class="panel" hidden>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="new">Новая накурка</button>
+      <button role="tab" aria-selected="false" data-tab="strains">Сорта</button>
+      <button role="tab" aria-selected="false" data-tab="log">Журнал</button>
+    </nav>
+
+    <section class="panel" id="panel-new">
+      <form id="form" class="panel" novalidate>
+        <div class="card">
+          <div class="row2">
+            <label class="f">Сорт
+              <input type="text" id="strain" list="strainNames" placeholder="Название, хоть «зелёная с рынка»" maxlength="80" autocomplete="off">
+              <datalist id="strainNames"></datalist>
+            </label>
+            <label class="f">Когда
+              <input type="datetime-local" id="when">
+            </label>
+          </div>
+          <label class="f">Как курили
+            <input type="text" id="method" placeholder="косяк, бонг, вейп, съедобное…" maxlength="60">
+          </label>
+          <label class="legendToggle" for="legendary">
+            <input type="checkbox" id="legendary">
+            <span>Легендарная накурка<small>Та, про которую будут рассказывать</small></span>
+          </label>
+        </div>
+
+        <div class="card" id="scales"></div>
+
+        <div class="card">
+          <label class="f">Банализмы: гениальные мысли, которые пришли в голову
+            <textarea id="banal" placeholder="«А ведь вода — она мокрая…»"></textarea>
+          </label>
+          <label class="f">Свободный текст
+            <textarea id="free" placeholder="Что было, что слушали, что ели. Без имён."></textarea>
+          </label>
+        </div>
+
+        <div class="head">
+          <button class="primary" id="save" type="submit">Сохранить накурку</button>
+          <span class="status" id="status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel" id="panel-strains" hidden>
+      <div id="strainList" class="panel"></div>
+    </section>
+
+    <section class="panel" id="panel-log" hidden>
+      <div class="seg" role="group" aria-label="Фильтр журнала">
+        <button type="button" aria-pressed="true" data-filter="all">Все</button>
+        <button type="button" aria-pressed="false" data-filter="legend">Легендарные</button>
+      </div>
+      <div id="logList" class="panel"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const SCALES = [
+  { k: "ohuenno",  n: "Насколько охуенно", lo: "полный пиздец", hi: "охуенно" },
+  { k: "social",   n: "Социализирует" },
+  { k: "yoga",     n: "Хочется делать йогу" },
+  { k: "dance",    n: "Хочется танцевать" },
+  { k: "music",    n: "Хочется музыку" },
+  { k: "anxiety",  n: "Тревожность", lo: "спокоен как удав", hi: "паника" },
+  { k: "prikhol",  n: "Прихолод", h: "(sic!)" },
+  { k: "great",    n: "Желание сделать великое", h: "«поехали шкаф собирать»" },
+  { k: "politics", n: "Хочется говорить о политике" },
+  { k: "rhymes",   n: "Наслаждение рифмами" },
+  { k: "inward",   n: "Утопание в себе" },
+  { k: "ego",      n: "Эго-трип" },
+  { k: "munchies", n: "Манчи" },
+];
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const fmt = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(Number.isInteger(v) ? 0 : 1);
+const sign = (v) => (v > 0 ? "pos" : v < 0 ? "neg" : "");
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+let sessions = [], filter = "all";
+let myTokens = store.get("delTokens", {}); // id → токен удаления; лежит только в этом браузере
+
+/* ---------- api ---------- */
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { "content-type": "application/json", "x-pass": store.get("pass", ""), ...(opts.headers || {}) } });
+  if (res.status === 401) { showGate("Пароль не подошёл."); throw new Error("401"); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Ошибка " + res.status);
+  return data;
+}
+async function load() { sessions = await api("/api/sessions"); renderAll(); }
+
+/* ---------- gate ---------- */
+function showGate(msg) { $("app").hidden = true; $("gate").hidden = false; $("gateStatus").textContent = msg || ""; $("pass").focus(); }
+$("gate").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  store.set("pass", $("pass").value);
+  try { await load(); $("gate").hidden = true; $("app").hidden = false; } catch {}
+});
+
+/* ---------- tabs ---------- */
+function showTab(t) {
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
+  for (const p of ["new", "strains", "log"]) $("panel-" + p).hidden = p !== t;
+  store.set("tab", t);
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+showTab(store.get("tab", "new"));
+document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
+  filter = b.dataset.filter;
+  document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  renderLog();
+}));
+
+/* ---------- form ---------- */
+function buildScales() {
+  const box = $("scales");
+  for (const s of SCALES) {
+    const row = el("div", "scale");
+    const name = el("label", "name", s.n); name.htmlFor = "s-" + s.k;
+    const val = el("span", "val", "0");
+    const inp = document.createElement("input");
+    Object.assign(inp, { type: "range", min: -5, max: 5, step: 1, value: 0, id: "s-" + s.k });
+    inp.addEventListener("input", () => { const v = +inp.value; val.textContent = fmt(v); val.className = "val " + sign(v); });
+    row.append(name, val);
+    if (s.h) row.append(el("span", "hint", s.h));
+    row.append(inp);
+    const ticks = el("div", "ticks");
+    ticks.append(el("span", null, "−5" + (s.lo ? " " + s.lo : "")), el("span", null, "0"), el("span", null, (s.hi ? s.hi + " " : "") + "+5"));
+    row.append(ticks);
+    box.append(row);
+  }
+}
+function nowLocal() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
+function resetForm() {
+  for (const s of SCALES) { const i = $("s-" + s.k); i.value = 0; i.dispatchEvent(new Event("input")); }
+  $("banal").value = ""; $("free").value = ""; $("legendary").checked = false; $("when").value = nowLocal();
+}
+function randomToken() { const a = new Uint8Array(24); crypto.getRandomValues(a); return [...a].map((b) => b.toString(16).padStart(2, "0")).join(""); }
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const status = $("status"), btn = $("save");
+  const strain = $("strain").value.trim();
+  if (!strain) { status.textContent = "Впишите сорт."; $("strain").focus(); return; }
+  btn.disabled = true; status.textContent = "Сохраняю…";
+  const scores = {};
+  for (const s of SCALES) scores[s.k] = +$("s-" + s.k).value;
+  const delToken = randomToken();
+  try {
+    const { id } = await api("/api/sessions", { method: "POST", body: JSON.stringify({
+      strain, at: $("when").value ? new Date($("when").value).toISOString() : new Date().toISOString(),
+      method: $("method").value, legendary: $("legendary").checked, scores, banal: $("banal").value, text: $("free").value, delToken,
+    }) });
+    myTokens[id] = delToken; store.set("delTokens", myTokens);
+    resetForm();
+    status.textContent = "Сохранено. Накурка появилась в журнале.";
+    await load();
+  } catch (err) { if (err.message !== "401") status.textContent = "Не сохранилось: " + err.message; }
+  finally { btn.disabled = false; }
+});
+
+/* ---------- aggregates ---------- */
+const keyOf = (name) => name.trim().toLowerCase().replace(/\s+/g, " ");
+function groupStrains() {
+  const map = new Map();
+  for (const x of sessions) {
+    const k = keyOf(x.strain);
+    if (!map.has(k)) map.set(k, { name: x.strain, list: [] });
+    map.get(k).list.push(x);
+  }
+  return [...map.values()];
+}
+function avgScores(list) {
+  const out = {};
+  for (const s of SCALES) {
+    const vals = list.map((x) => x.scores?.[s.k]).filter((v) => typeof v === "number");
+    out[s.k] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  }
+  return out;
+}
+function bars(avg) {
+  const box = el("div", "bars");
+  for (const s of SCALES) {
+    const v = avg[s.k];
+    const row = el("div", "bar");
+    row.append(el("span", "lbl", s.n));
+    const track = el("div", "track"), fill = el("div", "fill");
+    if (v != null && v !== 0) {
+      const w = Math.abs(v) / 5 * 50;
+      fill.style.width = w + "%";
+      fill.style.left = v > 0 ? "50%" : (50 - w) + "%";
+      fill.style.background = v > 0 ? "var(--pos)" : "var(--neg)";
+    }
+    track.append(fill);
+    row.append(track, el("span", "num " + sign(v ?? 0), v == null ? "—" : fmt(Math.round(v * 10) / 10)));
+    box.append(row);
+  }
+  return box;
+}
+const dateStr = (iso) => { try { return new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
+function plural(n, a, b, c) { const m = n % 10, h = n % 100; return n + " " + (m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 10 || h >= 20) ? b : c); }
+
+/* ---------- render ---------- */
+function renderStrains() {
+  const box = $("strainList"); box.textContent = "";
+  const groups = groupStrains();
+  const dl = $("strainNames"); dl.textContent = "";
+  for (const g of groups) dl.append(new Option(g.name));
+  if (!groups.length) { box.append(el("p", "empty", "Сортов пока нет. Впишите название во вкладке «Новая накурка», и сорт появится здесь.")); return; }
+  const rows = groups.map((g) => ({ ...g, avg: avgScores(g.list), legends: g.list.filter((x) => x.legendary).length }))
+    .sort((a, b) => b.avg.ohuenno - a.avg.ohuenno);
+  for (const g of rows) {
+    const c = el("article", "card" + (g.legends ? " legend" : ""));
+    const head = el("div", "head");
+    const t = el("div"), meta = el("div", "meta");
+    meta.append(el("span", null, plural(g.list.length, "накурка", "накурки", "накурок")));
+    if (g.legends) meta.append(el("span", "badge", g.legends === 1 ? "легендарная" : "легендарных: " + g.legends));
+    t.append(el("h2", null, g.name), meta);
+    const score = el("div", "big " + sign(g.avg.ohuenno), fmt(Math.round(g.avg.ohuenno * 10) / 10));
+    score.title = "Средняя оценка «Насколько охуенно»";
+    head.append(t, score);
+    c.append(head, bars(g.avg));
+    box.append(c);
+  }
+}
+
+function renderLog() {
+  const box = $("logList"); box.textContent = "";
+  const list = filter === "legend" ? sessions.filter((x) => x.legendary) : sessions;
+  if (!list.length) {
+    box.append(el("p", "empty", filter === "legend" ? "Легендарных накурок пока нет. Отметьте галочку «Легендарная накурка» при записи." : "Накурок пока нет. Первая запись появится здесь после сохранения."));
+    return;
+  }
+  for (const x of list) {
+    const c = el("article", "card" + (x.legendary ? " legend" : ""));
+    const head = el("div", "head");
+    const t = el("div"), meta = el("div", "meta");
+    meta.append(el("span", null, [dateStr(x.at), x.method].filter(Boolean).join(" · ")));
+    if (x.legendary) meta.append(el("span", "badge", "легендарная"));
+    t.append(el("h2", null, x.strain), meta);
+    const o = x.scores?.ohuenno ?? 0;
+    head.append(t, el("div", "big " + sign(o), fmt(o)));
+    c.append(head);
+    const chips = el("div", "chips");
+    for (const s of SCALES.slice(1)) { const v = x.scores?.[s.k]; if (v) chips.append(el("span", "chip " + sign(v), s.n + " " + fmt(v))); }
+    if (chips.childElementCount) c.append(chips);
+    if (x.banal) c.append(el("div", "quote", x.banal));
+    if (x.text) c.append(el("div", "free", x.text));
+    if (myTokens[x.id]) {
+      const del = el("button", "ghost", "Удалить"); del.type = "button";
+      del.addEventListener("click", async () => {
+        if (!del.dataset.armed) { del.dataset.armed = "1"; del.textContent = "Точно удалить?"; del.classList.add("danger"); return; }
+        del.disabled = true;
+        try {
+          await api("/api/sessions/" + x.id, { method: "DELETE", headers: { "x-del-token": myTokens[x.id] } });
+          delete myTokens[x.id]; store.set("delTokens", myTokens); await load();
+        } catch (err) { del.disabled = false; del.textContent = "Не удалилось"; }
+      });
+      const actions = el("div"); actions.append(del); c.append(actions);
+    }
+    box.append(c);
+  }
+}
+function renderAll() { renderStrains(); renderLog(); }
+
+/* ---------- boot ---------- */
+buildScales(); resetForm();
+if (!store.get("pass", "")) showGate();
+else load().then(() => { $("app").hidden = false; }).catch((e) => { if (e.message !== "401") showGate("Не удалось загрузить: " + e.message); });
+</script>
+</body>
+</html>
