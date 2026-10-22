@@ -14,9 +14,17 @@ async function sha256(s) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const keyOf = (name) => name.trim().toLowerCase().replace(/\s+/g, " ");
+
+// id накурок данного сорта; lower() в SQLite не знает кириллицу, поэтому сравниваем в JS
+async function sessionIdsOf(env, key) {
+  const { results } = await env.DB.prepare("SELECT id, strain FROM sessions").all();
+  return results.filter((r) => keyOf(r.strain) === key).map((r) => r.id);
+}
+
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
-function parseSession(body) {
+function parseSession(body, needToken = true) {
   const strain = str(body.strain, 80);
   if (!strain) return { error: "Нужен сорт" };
   const at = new Date(body.at);
@@ -27,7 +35,7 @@ function parseSession(body) {
     scores[k] = Number.isInteger(v) && v >= -5 && v <= 5 ? v : 0;
   }
   const delToken = str(body.delToken, 128);
-  if (delToken.length < 16) return { error: "Нет токена удаления" };
+  if (needToken && delToken.length < 16) return { error: "Нет токена удаления" };
   return {
     row: {
       at: at.toISOString(), strain, method: str(body.method, 60), legendary: body.legendary ? 1 : 0,
@@ -72,12 +80,48 @@ export default {
       try { body = await request.json(); } catch { return json({ error: "Плохой JSON" }, 400); }
       const name = str(body.name, 80);
       if (!name) return json({ error: "Нужно название" }, 400);
-      const key = name.toLowerCase().replace(/\s+/g, " ");
+      const key = keyOf(name);
       await env.DB.prepare("INSERT OR IGNORE INTO strains (key, name) VALUES (?, ?)").bind(key, name).run();
       return json({ ok: true }, 201);
     }
 
+    // Переименовать сорт (заодно во всех накурках) — может любой, авторов нет.
+    if (url.pathname === "/api/strains" && request.method === "PATCH") {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: "Плохой JSON" }, 400); }
+      const from = keyOf(str(body.from, 200)), to = str(body.to, 80);
+      if (!from || !to) return json({ error: "Нужно старое и новое название" }, 400);
+      const ids = await sessionIdsOf(env, from);
+      await env.DB.batch([
+        ...ids.map((id) => env.DB.prepare("UPDATE sessions SET strain = ? WHERE id = ?").bind(to, id)),
+        env.DB.prepare("DELETE FROM strains WHERE key = ?").bind(from),
+        env.DB.prepare("INSERT OR REPLACE INTO strains (key, name) VALUES (?, ?)").bind(keyOf(to), to),
+      ]);
+      return json({ ok: true, renamed: ids.length });
+    }
+
+    // Удалить можно только сорт без накурок, чтобы не снести чужие записи.
+    if (url.pathname === "/api/strains" && request.method === "DELETE") {
+      const key = keyOf(str(url.searchParams.get("name"), 200));
+      if (!key) return json({ error: "Нужно название" }, 400);
+      if ((await sessionIdsOf(env, key)).length) return json({ error: "У сорта есть накурки, удалить нельзя" }, 409);
+      await env.DB.prepare("DELETE FROM strains WHERE key = ?").bind(key).run();
+      return json({ ok: true });
+    }
+
     const m = url.pathname.match(/^\/api\/sessions\/([0-9a-f-]{36})$/);
+    if (m && request.method === "PUT") {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: "Плохой JSON" }, 400); }
+      const p = parseSession(body, false);
+      if (p.error) return json({ error: p.error }, 400);
+      const r = p.row;
+      const { meta } = await env.DB.prepare(
+        "UPDATE sessions SET at = ?, strain = ?, method = ?, legendary = ?, scores = ?, banal = ?, text = ? WHERE id = ? AND del_hash = ?"
+      ).bind(r.at, r.strain, r.method, r.legendary, r.scores, r.banal, r.text, m[1], await sha256(request.headers.get("x-del-token") || "")).run();
+      return meta.changes ? json({ ok: true }) : json({ error: "Изменить может только тот, кто записал, с того же браузера" }, 403);
+    }
+
     if (m && request.method === "DELETE") {
       const token = request.headers.get("x-del-token") || "";
       const { meta } = await env.DB.prepare("DELETE FROM sessions WHERE id = ? AND del_hash = ?")
