@@ -1,0 +1,346 @@
+<title>Трип-репорт</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column, tabs on top; sessions are the unit, strains aggregate them as diverging −5…+5 bars */
+:root {
+  --bg: #f3efe6; --surface: #fbf8f2; --ink: #2a2420; --muted: #7b6f63; --line: #ddd3c4;
+  --accent: #b5651d; --accent-ink: #fff8ef; --pos: #4f7a3a; --neg: #a8433a;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1d1915; --surface: #27221d; --ink: #efe6d8; --muted: #a39584; --line: #3b342c;
+  --accent: #e0954e; --accent-ink: #1d1915; --pos: #8fbf6f; --neg: #e07a6e; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #1d1915; --surface: #27221d; --ink: #efe6d8; --muted: #a39584; --line: #3b342c;
+  --accent: #e0954e; --accent-ink: #1d1915; --pos: #8fbf6f; --neg: #e07a6e; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 28px; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); margin: 4px 0 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 17px; margin: 0; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tabs button { font: 500 14px var(--body); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel { display: grid; gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+input[type=text], input[type=datetime-local], select, textarea { font: 15px var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; box-sizing: border-box; }
+textarea { min-height: 80px; resize: vertical; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 480px) { .row2 { grid-template-columns: 1fr; } }
+
+.scale { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding-block: 8px; border-top: 1px solid var(--line); }
+.scale:first-child { border-top: 0; }
+.scale .name { font-weight: 500; }
+.scale .hint { grid-column: 1 / -1; font-size: 12px; color: var(--muted); margin-top: -2px; }
+.scale .val { font: 500 15px var(--mono); font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
+.scale input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.ticks { grid-column: 1 / -1; display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--muted); }
+.val.pos { color: var(--pos); } .val.neg { color: var(--neg); }
+
+.primary { font: 600 15px var(--body); background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 12px 18px; cursor: pointer; }
+.primary:disabled { opacity: .5; cursor: default; }
+.ghost { font: 500 13px var(--body); background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+.ghost.danger { color: var(--neg); border-color: var(--neg); }
+.status { font-size: 13px; color: var(--muted); min-height: 1.5em; }
+
+.empty { color: var(--muted); text-align: center; padding: 28px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.meta { font-size: 13px; color: var(--muted); }
+.big { font: 700 22px var(--display); font-variant-numeric: tabular-nums; }
+
+/* diverging bars */
+.bars { display: grid; gap: 4px; }
+.bar { display: grid; grid-template-columns: minmax(0, 11em) 1fr 3.5ch; gap: 8px; align-items: center; font-size: 13px; }
+.bar .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar .track { position: relative; height: 10px; background: var(--bg); border-radius: 3px; }
+.bar .track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); }
+.bar .fill { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.bar .num { font: 12px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 420px) { .bar { grid-template-columns: minmax(0, 8.5em) 1fr 3.5ch; } }
+
+.quote { border-left: 3px solid var(--accent); padding: 2px 0 2px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.free { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 12px var(--mono); padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); }
+.chip.pos { color: var(--pos); } .chip.neg { color: var(--neg); }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Трип<span>-</span>репорт</h1>
+    <p class="sub">Оцениваем каждую накурку по 13 шкалам от −5 до +5. Сорт получает средние оценки по всем своим накуркам.</p>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-new" aria-selected="true" data-tab="new">Новая накурка</button>
+    <button role="tab" id="tab-strains" aria-selected="false" data-tab="strains">Сорта</button>
+    <button role="tab" id="tab-log" aria-selected="false" data-tab="log">Журнал</button>
+  </nav>
+
+  <section class="panel" id="panel-new">
+    <form id="form" class="panel" novalidate>
+      <div class="card">
+        <div class="row2">
+          <label class="f">Сорт
+            <select id="strain"><option value="">Загружаю сорта…</option></select>
+          </label>
+          <label class="f">Когда
+            <input type="datetime-local" id="when">
+          </label>
+        </div>
+        <div class="row2" id="newStrainRow" hidden>
+          <label class="f">Название нового сорта
+            <input type="text" id="strainName" placeholder="Например, Northern Lights" maxlength="80">
+          </label>
+          <label class="f">Тип
+            <select id="strainKind">
+              <option value="">не знаю</option><option>индика</option><option>сатива</option><option>гибрид</option>
+            </select>
+          </label>
+        </div>
+        <label class="f">Как курили
+          <input type="text" id="method" placeholder="косяк, бонг, вейп, съедобное…" maxlength="60">
+        </label>
+      </div>
+
+      <div class="card" id="scales"></div>
+
+      <div class="card">
+        <label class="f">Банализмы: гениальные мысли, которые пришли в голову
+          <textarea id="banal" placeholder="«А ведь вода — она мокрая…»"></textarea>
+        </label>
+        <label class="f">Свободный текст
+          <textarea id="free" placeholder="Что было, с кем, что слушали, что ели"></textarea>
+        </label>
+      </div>
+
+      <div class="head">
+        <button class="primary" id="save" type="submit" disabled>Сохранить накурку</button>
+        <span class="status" id="status" role="status"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" id="panel-strains" hidden>
+    <div id="strainList"><p class="empty">Сортов пока нет. Добавьте первый во вкладке «Новая накурка».</p></div>
+  </section>
+
+  <section class="panel" id="panel-log" hidden>
+    <div id="logList" class="panel"><p class="empty">Накурок пока нет. Первая запись появится здесь после сохранения.</p></div>
+  </section>
+</div>
+
+<script>
+const SCALES = [
+  { k: "ohuenno",  n: "Насколько охуенно", lo: "полный пиздец", hi: "охуенно" },
+  { k: "social",   n: "Социализирует" },
+  { k: "yoga",     n: "Хочется делать йогу" },
+  { k: "dance",    n: "Хочется танцевать" },
+  { k: "music",    n: "Хочется музыку" },
+  { k: "anxiety",  n: "Тревожность", lo: "спокоен как удав", hi: "паника" },
+  { k: "prikhol",  n: "Прихолод", h: "(sic!)" },
+  { k: "great",    n: "Желание сделать великое", h: "«поехали шкаф собирать»" },
+  { k: "politics", n: "Хочется говорить о политике" },
+  { k: "rhymes",   n: "Наслаждение рифмами" },
+  { k: "inward",   n: "Утопание в себе" },
+  { k: "ego",      n: "Эго-трип" },
+  { k: "munchies", n: "Манчи" },
+];
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const fmt = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(Number.isInteger(v) ? 0 : 1);
+const sign = (v) => (v > 0 ? "pos" : v < 0 ? "neg" : "");
+
+let db = null, user = null, myId = null;
+let strains = [], sessions = [], names = {};
+
+/* ---------- tabs ---------- */
+function showTab(t) {
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
+  for (const p of ["new", "strains", "log"]) $("panel-" + p).hidden = p !== t;
+  try { localStorage.setItem("tab", t); } catch {}
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+try { const t = localStorage.getItem("tab"); if (t) showTab(t); } catch {}
+
+/* ---------- form ---------- */
+function buildScales() {
+  const box = $("scales");
+  for (const s of SCALES) {
+    const row = el("div", "scale");
+    const name = el("label", "name", s.n); name.htmlFor = "s-" + s.k;
+    const val = el("span", "val", "0");
+    const inp = document.createElement("input");
+    Object.assign(inp, { type: "range", min: -5, max: 5, step: 1, value: 0, id: "s-" + s.k });
+    inp.addEventListener("input", () => { const v = +inp.value; val.textContent = fmt(v); val.className = "val " + sign(v); });
+    row.append(name, val);
+    if (s.h) row.append(el("span", "hint", s.h));
+    row.append(inp);
+    const ticks = el("div", "ticks");
+    ticks.append(el("span", null, "−5" + (s.lo ? " " + s.lo : "")), el("span", null, "0"), el("span", null, (s.hi ? s.hi + " " : "") + "+5"));
+    row.append(ticks);
+    box.append(row);
+  }
+}
+function nowLocal() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
+function resetForm() {
+  for (const s of SCALES) { const i = $("s-" + s.k); i.value = 0; i.dispatchEvent(new Event("input")); }
+  $("banal").value = ""; $("free").value = ""; $("strainName").value = ""; $("when").value = nowLocal();
+}
+$("strain").addEventListener("change", () => { $("newStrainRow").hidden = $("strain").value !== "__new"; });
+
+function fillStrainSelect() {
+  const sel = $("strain"), cur = sel.value;
+  sel.textContent = "";
+  sel.append(new Option("Выберите сорт", ""));
+  for (const s of [...strains].sort((a, b) => a.name.localeCompare(b.name, "ru"))) sel.append(new Option(s.name + (s.kind ? ` (${s.kind})` : ""), s.id));
+  sel.append(new Option("+ Новый сорт…", "__new"));
+  sel.value = [...sel.options].some((o) => o.value === cur) ? cur : "";
+  $("newStrainRow").hidden = sel.value !== "__new";
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!db) return;
+  const status = $("status"), btn = $("save");
+  let strainId = $("strain").value;
+  if (!strainId) { status.textContent = "Выберите сорт или добавьте новый."; return; }
+  if (strainId === "__new" && !$("strainName").value.trim()) { status.textContent = "Впишите название нового сорта."; return; }
+  btn.disabled = true; status.textContent = "Сохраняю…";
+  try {
+    if (strainId === "__new") {
+      const ref = await db.collection("strains").add({ name: $("strainName").value.trim(), kind: $("strainKind").value, by: myId, createdAt: new Date().toISOString() });
+      strainId = ref.id;
+    }
+    const scores = {};
+    for (const s of SCALES) scores[s.k] = +$("s-" + s.k).value;
+    const when = $("when").value ? new Date($("when").value).toISOString() : new Date().toISOString();
+    await db.collection("sessions").add({ strainId, at: when, by: myId, method: $("method").value.trim(), scores, banal: $("banal").value.trim(), text: $("free").value.trim() });
+    resetForm();
+    $("strain").value = strainId; $("newStrainRow").hidden = true;
+    status.textContent = "Сохранено. Накурка появилась в журнале.";
+  } catch (err) {
+    status.textContent = err?.code === "invalid_argument" ? "Нет прав на запись: попросите владельца дать вам доступ Contributor." :
+      err?.code === "quota_exceeded" ? "База переполнена: удалите старые записи." : "Не сохранилось, попробуйте ещё раз.";
+  } finally { btn.disabled = false; }
+});
+
+/* ---------- aggregates ---------- */
+function avgScores(list) {
+  const out = {};
+  for (const s of SCALES) {
+    const vals = list.map((x) => x.scores?.[s.k]).filter((v) => typeof v === "number");
+    out[s.k] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  }
+  return out;
+}
+function bars(avg) {
+  const box = el("div", "bars");
+  for (const s of SCALES) {
+    const v = avg[s.k];
+    const row = el("div", "bar");
+    row.append(el("span", "lbl", s.n));
+    const track = el("div", "track"), fill = el("div", "fill");
+    if (v != null && v !== 0) {
+      const w = Math.abs(v) / 5 * 50;
+      fill.style.width = w + "%";
+      fill.style.left = v > 0 ? "50%" : (50 - w) + "%";
+      fill.style.background = v > 0 ? "var(--pos)" : "var(--neg)";
+    }
+    track.append(fill);
+    row.append(track, el("span", "num " + sign(v ?? 0), v == null ? "—" : fmt(Math.round(v * 10) / 10)));
+    box.append(row);
+  }
+  return box;
+}
+const who = (id) => (id && names[id]) || "Кто-то";
+const dateStr = (iso) => { try { return new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
+function plural(n, a, b, c) { const m = n % 10, h = n % 100; return n + " " + (m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 10 || h >= 20) ? b : c); }
+
+/* ---------- render ---------- */
+function renderStrains() {
+  const box = $("strainList"); box.textContent = "";
+  if (!strains.length) { box.append(el("p", "empty", "Сортов пока нет. Добавьте первый во вкладке «Новая накурка».")); return; }
+  const rows = strains.map((s) => { const ss = sessions.filter((x) => x.strainId === s.id); return { s, ss, avg: avgScores(ss) }; })
+    .sort((a, b) => (b.avg.ohuenno ?? -99) - (a.avg.ohuenno ?? -99));
+  const list = el("div", "panel");
+  for (const { s, ss, avg } of rows) {
+    const c = el("article", "card");
+    const head = el("div", "head");
+    const t = el("div"); t.append(el("h2", null, s.name), el("div", "meta", [s.kind, plural(ss.length, "накурка", "накурки", "накурок")].filter(Boolean).join(" · ")));
+    const score = el("div", "big " + sign(avg.ohuenno ?? 0), avg.ohuenno == null ? "—" : fmt(Math.round(avg.ohuenno * 10) / 10));
+    score.title = "Средняя оценка «Насколько охуенно»";
+    head.append(t, score);
+    c.append(head);
+    if (ss.length) c.append(bars(avg)); else c.append(el("div", "meta", "Ещё не оценивали."));
+    list.append(c);
+  }
+  box.append(list);
+}
+
+function renderLog() {
+  const box = $("logList"); box.textContent = "";
+  if (!sessions.length) { box.append(el("p", "empty", "Накурок пока нет. Первая запись появится здесь после сохранения.")); return; }
+  const byId = Object.fromEntries(strains.map((s) => [s.id, s]));
+  for (const x of sessions) {
+    const c = el("article", "card");
+    const head = el("div", "head");
+    const t = el("div");
+    t.append(el("h2", null, byId[x.strainId]?.name || "Удалённый сорт"),
+      el("div", "meta", [dateStr(x.at), who(x.by), x.method].filter(Boolean).join(" · ")));
+    const o = x.scores?.ohuenno ?? 0;
+    head.append(t, el("div", "big " + sign(o), fmt(o)));
+    c.append(head);
+    const chips = el("div", "chips");
+    for (const s of SCALES.slice(1)) { const v = x.scores?.[s.k]; if (v) chips.append(el("span", "chip " + sign(v), s.n + " " + fmt(v))); }
+    if (chips.childElementCount) c.append(chips);
+    if (x.banal) c.append(el("div", "quote", x.banal));
+    if (x.text) c.append(el("div", "free", x.text));
+    if (x.by && x.by === myId) {
+      const del = el("button", "ghost", "Удалить"); del.type = "button";
+      del.addEventListener("click", async () => {
+        if (del.dataset.armed) { del.disabled = true; try { await db.doc("sessions/" + x.id).delete(); } catch { del.textContent = "Не удалилось"; } }
+        else { del.dataset.armed = "1"; del.textContent = "Точно удалить?"; del.classList.add("danger"); }
+      });
+      const actions = el("div"); actions.append(del); c.append(actions);
+    }
+    box.append(c);
+  }
+}
+
+async function resolveNames() {
+  if (!user) return;
+  const ids = [...new Set([...sessions, ...strains].map((x) => x.by).filter(Boolean))];
+  if (!ids.length) return;
+  try { const ps = await user.profiles(ids); for (const id of ids) names[id] = ps[id]?.name || ""; } catch {}
+  renderLog();
+}
+function renderAll() { fillStrainSelect(); renderStrains(); renderLog(); resolveNames(); }
+
+/* ---------- boot ---------- */
+buildScales(); resetForm();
+(async () => {
+  db = await window.claude?.use?.("db") ?? null;
+  user = await window.claude?.use?.("user") ?? null;
+  if (!db) {
+    $("strain").textContent = ""; $("strain").append(new Option("База недоступна", ""));
+    $("status").textContent = "Войдите в claude.ai, чтобы записывать накурки.";
+    return;
+  }
+  try { myId = user ? await user.id() : null; } catch {}
+  $("save").disabled = false;
+  db.collection("strains").onSnapshot((snap) => { strains = snap.docs.map((d) => ({ id: d.id, ...d.data() })); renderAll(); });
+  db.collection("sessions").orderBy("at", "desc").limit(500).onSnapshot((snap) => { sessions = snap.docs.map((d) => ({ id: d.id, ...d.data() })); renderAll(); });
+})();
+</script>
