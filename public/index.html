@@ -89,23 +89,20 @@ textarea { min-height: 80px; resize: vertical; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { font: 12px var(--mono); padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); }
 .chip.pos { color: var(--pos); } .chip.neg { color: var(--neg); }
-.gate { max-width: 360px; }
+.gate { max-width: 320px; margin: 18vh auto 0; display: grid; gap: 10px; width: 100%; }
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color .2s; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
+  <header id="hdr" hidden>
     <h1>Трип<span>-</span>репорт</h1>
     <p class="sub">Оцениваем каждую накурку по 13 шкалам от −5 до +5. Сорт получает средние по всем своим накуркам. Никаких имён и аккаунтов.</p>
   </header>
 
-  <form id="gate" class="card gate" hidden novalidate>
-    <h2>Вход</h2>
-    <label class="f">Пароль компании
-      <input type="password" id="pass" autocomplete="current-password" required>
-    </label>
-    <button class="primary" type="submit">Войти</button>
+  <form id="gate" class="gate" hidden novalidate>
+    <input type="password" id="pass" aria-label="Пароль" autocomplete="current-password">
+    <button class="primary" id="passBtn" type="submit" disabled>Пароль</button>
     <span class="status" id="gateStatus" role="status"></span>
   </form>
 
@@ -201,7 +198,7 @@ let myTokens = store.get("delTokens", {}); // id → токен удаления
 /* ---------- api ---------- */
 async function api(path, opts = {}) {
   const res = await fetch(path, { ...opts, headers: { "content-type": "application/json", "x-pass": store.get("pass", ""), ...(opts.headers || {}) } });
-  if (res.status === 401) { showGate("Пароль не подошёл."); throw new Error("401"); }
+  if (res.status === 401) { showGate("Не тот."); throw new Error("401"); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Ошибка " + res.status);
   return data;
@@ -209,11 +206,14 @@ async function api(path, opts = {}) {
 async function load() { sessions = await api("/api/sessions"); renderAll(); }
 
 /* ---------- gate ---------- */
-function showGate(msg) { $("app").hidden = true; $("gate").hidden = false; $("gateStatus").textContent = msg || ""; $("pass").focus(); }
+function showGate(msg) { $("app").hidden = true; $("hdr").hidden = true; $("gate").hidden = false; $("gateStatus").textContent = msg || ""; $("pass").focus(); }
+function showApp() { $("app").hidden = false; $("hdr").hidden = false; }
+$("pass").addEventListener("input", () => { $("passBtn").disabled = !$("pass").value; });
 $("gate").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!$("pass").value) return;
   store.set("pass", $("pass").value);
-  try { await load(); $("gate").hidden = true; $("app").hidden = false; } catch {}
+  try { await load(); $("gate").hidden = true; showApp(); } catch {}
 });
 
 /* ---------- tabs ---------- */
@@ -385,7 +385,7 @@ function renderAll() { renderStrains(); renderLog(); }
 /* ---------- boot ---------- */
 buildScales(); resetForm();
 if (!store.get("pass", "")) showGate();
-else load().then(() => { $("app").hidden = false; }).catch((e) => { if (e.message !== "401") showGate("Не удалось загрузить: " + e.message); });
+else load().then(showApp).catch((e) => { if (e.message !== "401") showGate("Не удалось загрузить: " + e.message); });
 </script>
 </body>
 </html>
