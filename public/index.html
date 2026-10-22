@@ -197,7 +197,7 @@ let myTokens = store.get("delTokens", {}); // id → токен удаления
 
 /* ---------- api ---------- */
 async function api(path, opts = {}) {
-  const res = await fetch(path, { ...opts, headers: { "content-type": "application/json", "x-pass": store.get("pass", ""), ...(opts.headers || {}) } });
+  const res = await fetch(path, { ...opts, headers: { "content-type": "application/json", "x-pass": encodeURIComponent(store.get("pass", "")), ...(opts.headers || {}) } });
   if (res.status === 401) { showGate("Не тот."); throw new Error("401"); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Ошибка " + res.status);
@@ -213,7 +213,8 @@ $("gate").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!$("pass").value) return;
   store.set("pass", $("pass").value);
-  try { await load(); $("gate").hidden = true; showApp(); } catch {}
+  try { await load(); $("gate").hidden = true; showApp(); }
+  catch (err) { if (err.message !== "401") $("gateStatus").textContent = "Не удалось: " + err.message; }
 });
 
 /* ---------- tabs ---------- */

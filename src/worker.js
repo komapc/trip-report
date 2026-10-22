@@ -48,7 +48,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
-    if (!(await passOk(request.headers.get("x-pass"), env.PASS))) return json({ error: "Неверный пароль" }, 401);
+    let pass = "";
+    try { pass = decodeURIComponent(request.headers.get("x-pass") || ""); } catch {}
+    if (!(await passOk(pass, env.PASS))) return json({ error: "Неверный пароль" }, 401);
 
     if (url.pathname === "/api/sessions" && request.method === "GET") {
       const { results } = await env.DB.prepare(
