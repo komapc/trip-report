@@ -155,6 +155,15 @@ textarea { min-height: 80px; resize: vertical; }
     </section>
 
     <section class="panel" id="panel-strains" hidden>
+      <form id="addStrain" class="card" novalidate>
+        <label class="f">Новый сорт
+          <input type="text" id="newStrain" placeholder="Название, хоть «зелёная с рынка»" maxlength="80" autocomplete="off">
+        </label>
+        <div class="head">
+          <button class="primary" id="addStrainBtn" type="submit">Добавить сорт</button>
+          <span class="status" id="strainStatus" role="status"></span>
+        </div>
+      </form>
       <div id="strainList" class="panel"></div>
     </section>
 
@@ -204,7 +213,8 @@ async function api(path, opts = {}) {
   if (!res.ok) throw new Error(data.error || "Ошибка " + res.status);
   return data;
 }
-async function load() { sessions = await api("/api/sessions"); renderAll(); }
+let extraStrains = [];
+async function load() { [sessions, extraStrains] = await Promise.all([api("/api/sessions"), api("/api/strains")]); renderAll(); }
 
 /* ---------- gate ---------- */
 function showGate(msg) { $("app").hidden = true; $("hdr").hidden = true; $("gate").hidden = false; $("gateStatus").textContent = msg || ""; $("pass").focus(); }
@@ -281,6 +291,18 @@ $("form").addEventListener("submit", async (e) => {
   finally { btn.disabled = false; }
 });
 
+$("addStrain").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("newStrain").value.trim(), status = $("strainStatus");
+  if (!name) { status.textContent = "Впишите название."; $("newStrain").focus(); return; }
+  $("addStrainBtn").disabled = true;
+  try {
+    await api("/api/strains", { method: "POST", body: JSON.stringify({ name }) });
+    $("newStrain").value = ""; status.textContent = "Добавлен: " + name; await load();
+  } catch (err) { status.textContent = "Не добавился: " + err.message; }
+  finally { $("addStrainBtn").disabled = false; }
+});
+
 /* ---------- aggregates ---------- */
 const keyOf = (name) => name.trim().toLowerCase().replace(/\s+/g, " ");
 function groupStrains() {
@@ -290,6 +312,7 @@ function groupStrains() {
     if (!map.has(k)) map.set(k, { name: x.strain, list: [] });
     map.get(k).list.push(x);
   }
+  for (const name of extraStrains) { const k = keyOf(name); if (!map.has(k)) map.set(k, { name, list: [] }); }
   return [...map.values()];
 }
 function avgScores(list) {
@@ -328,20 +351,24 @@ function renderStrains() {
   const groups = groupStrains();
   const dl = $("strainNames"); dl.textContent = "";
   for (const g of groups) dl.append(new Option(g.name));
-  if (!groups.length) { box.append(el("p", "empty", "Сортов пока нет. Впишите название во вкладке «Новая накурка», и сорт появится здесь.")); return; }
+  if (!groups.length) { box.append(el("p", "empty", "Сортов пока нет. Впишите название выше или запишите накурку, и сорт появится здесь.")); return; }
   const rows = groups.map((g) => ({ ...g, avg: avgScores(g.list), legends: g.list.filter((x) => x.legendary).length }))
-    .sort((a, b) => b.avg.ohuenno - a.avg.ohuenno);
+    .sort((a, b) => (b.avg.ohuenno ?? -99) - (a.avg.ohuenno ?? -99) || a.name.localeCompare(b.name, "ru"));
   for (const g of rows) {
     const c = el("article", "card" + (g.legends ? " legend" : ""));
     const head = el("div", "head");
     const t = el("div"), meta = el("div", "meta");
-    meta.append(el("span", null, plural(g.list.length, "накурка", "накурки", "накурок")));
+    meta.append(el("span", null, g.list.length ? plural(g.list.length, "накурка", "накурки", "накурок") : "ещё не курили"));
     if (g.legends) meta.append(el("span", "badge", g.legends === 1 ? "легендарная" : "легендарных: " + g.legends));
     t.append(el("h2", null, g.name), meta);
-    const score = el("div", "big " + sign(g.avg.ohuenno), fmt(Math.round(g.avg.ohuenno * 10) / 10));
+    const score = el("div", "big " + sign(g.avg.ohuenno ?? 0), g.avg.ohuenno == null ? "—" : fmt(Math.round(g.avg.ohuenno * 10) / 10));
     score.title = "Средняя оценка «Насколько охуенно»";
     head.append(t, score);
-    c.append(head, bars(g.avg));
+    c.append(head);
+    if (g.list.length) c.append(bars(g.avg));
+    const go = el("button", "ghost", "Записать накурку"); go.type = "button";
+    go.addEventListener("click", () => { $("strain").value = g.name; showTab("new"); $("strain").scrollIntoView({ block: "center" }); });
+    const actions = el("div"); actions.append(go); c.append(actions);
     box.append(c);
   }
 }

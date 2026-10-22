@@ -21,8 +21,8 @@
 ## Устройство
 
 - `public/index.html` — вся страница, без сборки.
-- `src/worker.js` — Cloudflare Worker: `GET/POST /api/sessions`, `DELETE /api/sessions/:id`.
-- `schema.sql` — таблица `sessions` в Cloudflare D1.
+- `src/worker.js` — Cloudflare Worker: `GET/POST /api/sessions`, `DELETE /api/sessions/:id`, `GET/POST /api/strains`.
+- `schema.sql` — таблицы `sessions` и `strains` (сорта, вписанные заранее) в Cloudflare D1.
 
 ## Деплой
 

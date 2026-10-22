@@ -62,6 +62,21 @@ export default {
       return json({ id }, 201);
     }
 
+    if (url.pathname === "/api/strains" && request.method === "GET") {
+      const { results } = await env.DB.prepare("SELECT name FROM strains ORDER BY name LIMIT 2000").all();
+      return json(results.map((r) => r.name));
+    }
+
+    if (url.pathname === "/api/strains" && request.method === "POST") {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: "Плохой JSON" }, 400); }
+      const name = str(body.name, 80);
+      if (!name) return json({ error: "Нужно название" }, 400);
+      const key = name.toLowerCase().replace(/\s+/g, " ");
+      await env.DB.prepare("INSERT OR IGNORE INTO strains (key, name) VALUES (?, ?)").bind(key, name).run();
+      return json({ ok: true }, 201);
+    }
+
     const m = url.pathname.match(/^\/api\/sessions\/([0-9a-f-]{36})$/);
     if (m && request.method === "DELETE") {
       const token = request.headers.get("x-del-token") || "";

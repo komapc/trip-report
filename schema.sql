@@ -10,3 +10,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   text      TEXT NOT NULL DEFAULT '',
   del_hash  TEXT NOT NULL           -- sha256 токена удаления, сам токен живёт только в браузере автора
 );
+
+-- Сорта, вписанные заранее, ещё без накурок. Ключ — название в нижнем регистре без лишних пробелов.
+CREATE TABLE IF NOT EXISTS strains (
+  key  TEXT PRIMARY KEY,
+  name TEXT NOT NULL
+);
