@@ -1,0 +1,15 @@
+name = "trip-report"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# Анонимность: observability/logpush не включаем — запросы с IP нигде не сохраняются.
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "trip-report"
+database_id = "0d70ef24-4390-4ff5-b4be-615097dd0c49"
