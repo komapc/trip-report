@@ -1,5 +1,6 @@
 // API для трип-репорта. Статика (public/) отдаётся Cloudflare до воркера,
 // сюда доходят только /api/*. Ничего о запросе (IP, UA, время) не сохраняем.
+// Весь /api/* закрыт общим паролем (секрет PASS); без секрета API не работает (503), а не открыт всем.
 
 const SCALE_KEYS = ["ohuenno", "social", "yoga", "dance", "music", "anxiety", "prikhol",
   "great", "politics", "rhymes", "inward", "ego", "munchies"];
@@ -12,6 +13,22 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
 async function sha256(s) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Сравнение без утечки по времени: хэши одинаковой длины, timingSafeEqual
+async function passOk(given, expected) {
+  if (!expected || !given) return false;
+  const [a, b] = await Promise.all([sha256(given), sha256(expected)]);
+  return crypto.subtle.timingSafeEqual(new TextEncoder().encode(a), new TextEncoder().encode(b));
+}
+
+const MAX_BODY = 32 * 1024; // самая большая накурка — около 13 КБ текста
+
+// content-length может не быть (chunked), поэтому длину проверяем и по факту
+async function readJson(request) {
+  const text = await request.text();
+  if (text.length > MAX_BODY) throw new Error("too large");
+  return JSON.parse(text);
 }
 
 const keyOf = (name) => name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -50,6 +67,12 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
 
+    if (!env.PASS) return json({ error: "Сервер не настроен: нет пароля (wrangler secret put PASS)" }, 503);
+    let pass = "";
+    try { pass = decodeURIComponent(request.headers.get("x-pass") || ""); } catch {}
+    if (!(await passOk(pass, env.PASS))) return json({ error: "Неверный пароль" }, 401);
+    if (Number(request.headers.get("content-length") || 0) > MAX_BODY) return json({ error: "Слишком большой запрос" }, 413);
+
     if (url.pathname === "/api/sessions" && request.method === "GET") {
       const { results } = await env.DB.prepare(
         "SELECT id, at, strain, method, legendary, scores, banal, text FROM sessions ORDER BY at DESC LIMIT 2000"
@@ -59,7 +82,7 @@ export default {
 
     if (url.pathname === "/api/sessions" && request.method === "POST") {
       let body;
-      try { body = await request.json(); } catch { return json({ error: "Плохой JSON" }, 400); }
+      try { body = await readJson(request); } catch { return json({ error: "Плохой JSON" }, 400); }
       const p = parseSession(body);
       if (p.error) return json({ error: p.error }, 400);
       const id = crypto.randomUUID();
@@ -77,7 +100,7 @@ export default {
 
     if (url.pathname === "/api/strains" && request.method === "POST") {
       let body;
-      try { body = await request.json(); } catch { return json({ error: "Плохой JSON" }, 400); }
+      try { body = await readJson(request); } catch { return json({ error: "Плохой JSON" }, 400); }
       const name = str(body.name, 80);
       if (!name) return json({ error: "Нужно название" }, 400);
       const key = keyOf(name);
@@ -85,10 +108,10 @@ export default {
       return json({ ok: true }, 201);
     }
 
-    // Переименовать сорт (заодно во всех накурках) — может любой, авторов нет.
+    // Переименовать сорт (заодно во всех накурках) — может любой, кто знает пароль; авторов нет.
     if (url.pathname === "/api/strains" && request.method === "PATCH") {
       let body;
-      try { body = await request.json(); } catch { return json({ error: "Плохой JSON" }, 400); }
+      try { body = await readJson(request); } catch { return json({ error: "Плохой JSON" }, 400); }
       const from = keyOf(str(body.from, 200)), to = str(body.to, 80);
       if (!from || !to) return json({ error: "Нужно старое и новое название" }, 400);
       const ids = await sessionIdsOf(env, from);
@@ -112,7 +135,7 @@ export default {
     const m = url.pathname.match(/^\/api\/sessions\/([0-9a-f-]{36})$/);
     if (m && request.method === "PUT") {
       let body;
-      try { body = await request.json(); } catch { return json({ error: "Плохой JSON" }, 400); }
+      try { body = await readJson(request); } catch { return json({ error: "Плохой JSON" }, 400); }
       const p = parseSession(body, false);
       if (p.error) return json({ error: p.error }, 400);
       const r = p.row;
